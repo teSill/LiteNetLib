@@ -225,6 +225,20 @@ namespace LiteNetLib
             _mtu = NetConstants.PossibleMtu[mtuIdx] - extraLayerSpace;
         }
 
+        /// <summary>
+        /// Returns packets count in queue for reliable channel
+        /// </summary>
+        /// <param name="channelNumber">number of channel 0-63</param>
+        /// <param name="ordered">type of channel ReliableOrdered or ReliableUnordered</param>
+        /// <returns>packets count in channel queue</returns>
+        public int GetPacketsCountInReliableQueue(byte channelNumber, bool ordered)
+        {
+            int idx = channelNumber * 4 +
+                       (byte) (ordered ? DeliveryMethod.ReliableOrdered : DeliveryMethod.ReliableUnordered);
+            var channel = _channels[idx];
+            return channel != null ? ((ReliableChannel)channel).PacketsInQueue : 0;
+        }
+
         private BaseChannel CreateChannel(byte idx)
         {
             BaseChannel newChannel = _channels[idx];
@@ -960,10 +974,13 @@ namespace LiteNetLib
                 //Send without length information and merging
                 bytesSent = NetManager.SendRaw(_mergeData.RawData, NetConstants.HeaderSize + 2, _mergePos - 2, EndPoint);
             }
-#if STATS_ENABLED
-            Statistics.PacketsSent++;
-            Statistics.BytesSent += (ulong)bytesSent;
-#endif
+
+            if (NetManager.EnableStatistics)
+            {
+                Statistics.PacketsSent++;
+                Statistics.BytesSent += (ulong)bytesSent;
+            }
+
             _mergePos = 0;
             _mergeCount = 0;
         }
@@ -977,10 +994,13 @@ namespace LiteNetLib
             {
                 NetDebug.Write(NetLogLevel.Trace, "[P]SendingPacket: " + packet.Property);
                 int bytesSent = NetManager.SendRaw(packet, EndPoint);
-#if STATS_ENABLED
-                Statistics.PacketsSent++;
-                Statistics.BytesSent += (ulong)bytesSent;
-#endif
+
+                if (NetManager.EnableStatistics)
+                {
+                    Statistics.PacketsSent++;
+                    Statistics.BytesSent += (ulong)bytesSent;
+                }
+
                 return;
             }
             if (_mergePos + mergedPacketSize > _mtu)
