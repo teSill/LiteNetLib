@@ -150,6 +150,9 @@ namespace LiteNetLib
         private readonly NetSocket _socket;
         private Thread _logicThread;
 
+        public static readonly int GAME_SERVER_PORT = 10515;
+        public static readonly int LOGIN_SERVER_PORT = 10516;
+
         private readonly Queue<NetEvent> _netEventsQueue;
         private readonly Stack<NetEvent> _netEventsPool;
         private readonly INetEventListener _netEventListener;
@@ -1108,7 +1111,12 @@ namespace LiteNetLib
             {
                 _peersLock.EnterReadLock();
                 for (var netPeer = _headPeer; netPeer != null; netPeer = netPeer.NextPeer)
+                {
+                    if (netPeer.EndPoint.Port == LOGIN_SERVER_PORT)
+                        continue;
+                    
                     netPeer.Send(data, start, length, channelNumber, options);
+                }
             }
             finally
             {
@@ -1192,6 +1200,10 @@ namespace LiteNetLib
                 _peersLock.EnterReadLock();
                 for (var netPeer = _headPeer; netPeer != null; netPeer = netPeer.NextPeer)
                 {
+                    if (netPeer.EndPoint.Port == LOGIN_SERVER_PORT)
+                    {
+                        continue;
+                    }
                     if (netPeer != excludePeer)
                         netPeer.Send(data, start, length, channelNumber, options);
                 }
