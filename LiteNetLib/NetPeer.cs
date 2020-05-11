@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
+using System.Threading;
 using LiteNetLib.Utils;
 
 namespace LiteNetLib
@@ -322,7 +323,7 @@ namespace LiteNetLib
             ConnectionNum = packet.ConnectionNumber;
 
             NetDebug.Write(NetLogLevel.Trace, "[NC] Received connection accept");
-            _timeSinceLastPacket = 0;
+            Interlocked.Exchange(ref _timeSinceLastPacket, 0);
             _connectionState = ConnectionState.Connected;
             return true;
         }
@@ -574,9 +575,14 @@ namespace LiteNetLib
             packet.UserData = userData;
 
             if (channel == null) //unreliable
-                _unreliableChannel.Enqueue(packet);
+            {
+                lock(_unreliableChannel)
+                    _unreliableChannel.Enqueue(packet);
+            }
             else
+            {
                 channel.AddToQueue(packet);
+            }
         }
 
         public void Disconnect(byte[] data)
@@ -627,7 +633,7 @@ namespace LiteNetLib
                 var result = _connectionState == ConnectionState.Connected
                     ? ShutdownResult.WasConnected
                     : ShutdownResult.Success;
-;
+
                 //don't send anything
                 if (force)
                 {
@@ -636,11 +642,10 @@ namespace LiteNetLib
                 }
 
                 //reset time for reconnect protection
-                _timeSinceLastPacket = 0;
+                Interlocked.Exchange(ref _timeSinceLastPacket, 0);
 
                 //send shutdown packet
-                _shutdownPacket = new NetPacket(PacketProperty.Disconnect, length);
-                _shutdownPacket.ConnectionNumber = _connectNum;
+                _shutdownPacket = new NetPacket(PacketProperty.Disconnect, length) {ConnectionNumber = _connectNum};
                 FastBitConverter.GetBytes(_shutdownPacket.RawData, 1, _connectTime);
                 if (_shutdownPacket.Size >= _mtu)
                 {
@@ -875,7 +880,7 @@ namespace LiteNetLib
                 _packetPool.Recycle(packet);
                 return;
             }
-            _timeSinceLastPacket = 0;
+            Interlocked.Exchange(ref _timeSinceLastPacket, 0);
 
             NetDebug.Write("[RR]PacketProperty: {0}", packet.Property);
             switch (packet.Property)
@@ -1045,7 +1050,7 @@ namespace LiteNetLib
 
         internal void Update(int deltaTime)
         {
-            _timeSinceLastPacket += deltaTime;
+            Interlocked.Add(ref _timeSinceLastPacket, deltaTime);
             switch (_connectionState)
             {
                 case ConnectionState.Connected:

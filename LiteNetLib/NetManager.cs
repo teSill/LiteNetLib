@@ -656,9 +656,11 @@ namespace LiteNetLib
                 ulong totalPacketLoss = 0;
 
                 int elapsed = (int)stopwatch.ElapsedMilliseconds;
-                if (elapsed <= 0)
-                    elapsed = 1;
-                for(var netPeer = _headPeer; netPeer != null; netPeer = netPeer.NextPeer)
+                elapsed = elapsed <= 0 ? 1 : elapsed;
+                stopwatch.Reset();
+                stopwatch.Start();
+
+                for (var netPeer = _headPeer; netPeer != null; netPeer = netPeer.NextPeer)
                 {
                     if (netPeer.ConnectionState == ConnectionState.Disconnected && netPeer.TimeSinceLastPacket > DisconnectTimeout)
                     {
@@ -688,9 +690,7 @@ namespace LiteNetLib
                     Statistics.PacketLoss = totalPacketLoss;
                 }
 
-                int sleepTime = UpdateTime - (int)(stopwatch.ElapsedMilliseconds - elapsed);
-                stopwatch.Reset();
-                stopwatch.Start();
+                int sleepTime = UpdateTime - (int)stopwatch.ElapsedMilliseconds;
                 if (sleepTime > 0)
                     Thread.Sleep(sleepTime);
             }
